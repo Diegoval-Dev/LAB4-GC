@@ -191,7 +191,59 @@ pub fn rocky_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
   color_dark_gray.blend_multiply(&noise_color)
 }
 
+pub fn venus_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+  let x = fragment.vertex_position.x;
+  let y = fragment.vertex_position.y;
 
+  // Colores base para simular las nubes densas de Venus
+  let color_soft_yellow = Color::new(255, 228, 181); // Amarillo suave
+  let color_light_gray = Color::new(220, 220, 220);  // Gris claro
+  let color_white = Color::new(255, 250, 240);       // Blanco suave
+
+  // Crear un patrón de franjas onduladas con valores de onda ajustados
+  let time = uniforms.time as f32 * 0.01; // Control de velocidad para movimiento sutil
+  let wave_pattern_x = ((x * 3.0 + time).sin() * 0.5 + 0.5).clamp(0.0, 1.0);
+  let wave_pattern_y = ((y * 3.0 + time).cos() * 0.5 + 0.5).clamp(0.0, 1.0);
+
+  // Mezcla de colores para simular las capas de nubes con ondas
+  let base_color = color_soft_yellow.lerp(&color_light_gray, wave_pattern_x);
+  let final_color = base_color.lerp(&color_white, wave_pattern_y);
+
+  final_color
+}
+
+
+pub fn earth_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+  let x = fragment.vertex_position.x;
+  let y = fragment.vertex_position.y;
+
+  let color_water = Color::new(0, 105, 148);       
+  let color_land = Color::new(34, 139, 34);        
+  let color_mountain = Color::new(139, 69, 19);    
+  let color_cloud = Color::new(255, 255, 255);     
+
+  let continent_factor = ((x * 3.5 + y * 2.1).sin() * (x * 2.8 - y * 3.3).cos()).abs();
+
+  let base_color = if continent_factor > 0.4 {
+      if continent_factor > 0.6 {
+          color_mountain
+      } else {
+          color_land
+      }
+  } else {
+      color_water
+  };
+
+  let time = uniforms.time as f32 * 0.02;
+  let cloud_noise = ((x * 20.0 + time).sin() * (y * 20.0 + time).cos()).abs();
+  let cloud_color = if cloud_noise > 0.6 {
+      color_cloud
+  } else {
+      base_color
+  };
+
+  cloud_color
+}
 
 
 

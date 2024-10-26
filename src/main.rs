@@ -17,7 +17,7 @@ use vertex::Vertex;
 use obj::Obj;
 use camera::Camera;
 use triangle::triangle;
-use shaders::{vertex_shader, fragment_shader, sun_shader, rocky_planet_shader};
+use shaders::{vertex_shader, fragment_shader, sun_shader, rocky_planet_shader,venus_shader, earth_shader};
 
 pub struct Uniforms {
     model_matrix: Mat4,
@@ -142,7 +142,86 @@ fn render_rocky_planet(framebuffer: &mut Framebuffer, uniforms: &Uniforms, verte
         }
     }
 }
+fn render_venus(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Vertex]) {
+    // Vertex Shader
+    let mut transformed_vertices = Vec::with_capacity(vertex_array.len());
+    for vertex in vertex_array {
+        let transformed = vertex_shader(vertex, uniforms);
+        transformed_vertices.push(transformed);
+    }
 
+    // Primitive Assembly
+    let mut triangles = Vec::new();
+    for i in (0..transformed_vertices.len()).step_by(3) {
+        if i + 2 < transformed_vertices.len() {
+            triangles.push([
+                transformed_vertices[i].clone(),
+                transformed_vertices[i + 1].clone(),
+                transformed_vertices[i + 2].clone(),
+            ]);
+        }
+    }
+
+    // Rasterización y procesamiento de fragmentos
+    let mut fragments = Vec::new();
+    for tri in &triangles {
+        fragments.extend(triangle(&tri[0], &tri[1], &tri[2]));
+    }
+
+    // Fragment Shader específico de Venus
+    for fragment in fragments {
+        let x = fragment.position.x as usize;
+        let y = fragment.position.y as usize;
+
+        if x < framebuffer.width && y < framebuffer.height {
+            // Aplicar el shader específico para Venus
+            let shaded_color = venus_shader(&fragment, uniforms);
+            let color = shaded_color.to_hex();
+            framebuffer.set_current_color(color);
+            framebuffer.point(x, y, fragment.depth);
+        }
+    }
+}
+
+fn render_earth(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Vertex]) {
+    // Vertex Shader
+    let mut transformed_vertices = Vec::with_capacity(vertex_array.len());
+    for vertex in vertex_array {
+        let transformed = vertex_shader(vertex, uniforms);
+        transformed_vertices.push(transformed);
+    }
+
+    // Ensamblado de Triángulos
+    let mut triangles = Vec::new();
+    for i in (0..transformed_vertices.len()).step_by(3) {
+        if i + 2 < transformed_vertices.len() {
+            triangles.push([
+                transformed_vertices[i].clone(),
+                transformed_vertices[i + 1].clone(),
+                transformed_vertices[i + 2].clone(),
+            ]);
+        }
+    }
+
+    // Rasterización y procesamiento de fragmentos
+    let mut fragments = Vec::new();
+    for tri in &triangles {
+        fragments.extend(triangle(&tri[0], &tri[1], &tri[2]));
+    }
+
+    // Aplicar `earth_shader` en cada fragmento
+    for fragment in fragments {
+        let x = fragment.position.x as usize;
+        let y = fragment.position.y as usize;
+
+        if x < framebuffer.width && y < framebuffer.height {
+            let shaded_color = earth_shader(&fragment, uniforms);
+            let color = shaded_color.to_hex();
+            framebuffer.set_current_color(color);
+            framebuffer.point(x, y, fragment.depth);
+        }
+    }
+}
 
 
 fn main() {
@@ -154,7 +233,7 @@ fn main() {
 
     let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
     let mut window = Window::new(
-        "Sistema Solar Shader Lab - Sol y Mercurio",
+        "Sistema Solar Shader Lab - Sol, Mercurio y Venus",
         window_width,
         window_height,
         WindowOptions::default(),
@@ -169,16 +248,30 @@ fn main() {
     let obj_sun = Obj::load("assets/models/sun.obj").expect("Failed to load sun");
     let vertex_array_sun = obj_sun.get_vertex_array();
 
-    // Configuración de Mercurio (planeta rocoso)
-    let translation_mercury = Vec3::new(8.0, 4.0, 0.0); // Posición cerca del sol
+    // Configuración de Mercurio
+    let translation_mercury = Vec3::new(4.0, 0.0, 0.0); // Mercurio cerca del sol
     let scale_mercury = 0.5f32;
     let rotation_mercury = Vec3::new(0.0, 0.0, 0.0);
     let obj_mercury = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
     let vertex_array_mercury = obj_mercury.get_vertex_array();
 
+    // Configuración de Venus
+    let translation_venus = Vec3::new(6.0, 0.0, 0.0); // Venus más lejos que Mercurio
+    let scale_venus = 0.6f32;
+    let rotation_venus = Vec3::new(0.0, 0.0, 0.0);
+    let obj_venus = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
+    let vertex_array_venus = obj_venus.get_vertex_array();
+
+    // Configuración de la Tierra
+    let translation_earth = Vec3::new(8.0, 0.0, 0.0); // Más lejos que Venus
+    let scale_earth = 0.6f32;
+    let rotation_earth = Vec3::new(0.0, 0.0, 0.0);
+    let obj_earth = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
+    let vertex_array_earth = obj_earth.get_vertex_array();
+
     // Cámara inicial
     let mut camera = Camera::new(
-        Vec3::new(0.0, 0.0, 5.0),
+        Vec3::new(0.0, 0.0, 10.0),
         Vec3::new(0.0, 0.0, 0.0),
         Vec3::new(0.0, 1.0, 0.0)
     );
@@ -211,16 +304,39 @@ fn main() {
         };
         render(&mut framebuffer, &uniforms_sun, &vertex_array_sun);
 
-        // Renderizar Mercurio con shader de planeta rocoso
+        // Renderizar Mercurio con el shader de planeta rocoso
         let model_matrix_mercury = create_model_matrix(translation_mercury, scale_mercury, rotation_mercury);
         let uniforms_mercury = Uniforms {
             model_matrix: model_matrix_mercury,
-            view_matrix,
+            view_matrix: view_matrix.clone(),
             projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
             viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
             time,
         };
         render_rocky_planet(&mut framebuffer, &uniforms_mercury, &vertex_array_mercury);
+
+        // Renderizar Venus con el shader atmosférico
+        let model_matrix_venus = create_model_matrix(translation_venus, scale_venus, rotation_venus);
+        let uniforms_venus = Uniforms {
+            model_matrix: model_matrix_venus,
+            view_matrix,
+            projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
+            viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
+            time,
+        };
+        render_venus(&mut framebuffer, &uniforms_venus, &vertex_array_venus);
+
+        // Dentro del bucle principal
+    let model_matrix_earth = create_model_matrix(translation_earth, scale_earth, rotation_earth);
+    let uniforms_earth = Uniforms {
+        model_matrix: model_matrix_earth,
+        view_matrix: view_matrix.clone(),
+        projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
+        viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
+        time,
+    };
+    render_earth(&mut framebuffer, &uniforms_earth, &vertex_array_earth);
+
 
         window
             .update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height)
