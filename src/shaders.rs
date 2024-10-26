@@ -270,6 +270,45 @@ pub fn mars_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
   base_color
 }
 
+pub fn jupiter_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+  let x = fragment.vertex_position.x;
+  let y = fragment.vertex_position.y;
+
+  // Colores base para las bandas de la atmósfera de Júpiter
+  let color_light_brown = Color::new(210, 180, 140); // Marrón claro
+  let color_dark_brown = Color::new(139, 69, 19);    // Marrón oscuro
+  let color_white = Color::new(245, 245, 245);       // Blanco para bandas claras
+  let color_red_spot = Color::new(255, 69, 0);       // Rojo para la Gran Mancha Roja
+
+  // Movimiento en las bandas para simular la atmósfera en movimiento
+  let time = uniforms.time as f32 * 0.02; // Control de velocidad
+  let band_pattern = ((y * 10.0 + time).sin() * 0.5 + 0.5).clamp(0.0, 1.0);
+
+  // Bandas horizontales: alternamos colores para crear la atmósfera en capas
+  let base_color = if band_pattern < 0.3 {
+      color_light_brown
+  } else if band_pattern < 0.6 {
+      color_white
+  } else {
+      color_dark_brown
+  };
+
+  // Añadir la Gran Mancha Roja como una elipse en la superficie
+  let red_spot_x = (x - 0.3).powi(2) / 0.1;
+  let red_spot_y = (y + 0.2).powi(2) / 0.2;
+  let red_spot_intensity = 1.0 - (red_spot_x + red_spot_y).clamp(0.0, 1.0);
+
+  let final_color = if red_spot_intensity > 0.7 {
+      color_red_spot.lerp(&base_color, red_spot_intensity)
+  } else {
+      base_color
+  };
+
+  final_color
+}
+
+
+
 
 
 

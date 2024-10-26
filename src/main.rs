@@ -17,7 +17,7 @@ use vertex::Vertex;
 use obj::Obj;
 use camera::Camera;
 use triangle::triangle;
-use shaders::{vertex_shader, fragment_shader, sun_shader, rocky_planet_shader,venus_shader, earth_shader, mars_shader};
+use shaders::{vertex_shader, fragment_shader, sun_shader, rocky_planet_shader,venus_shader, earth_shader, mars_shader,jupiter_shader};
 
 pub struct Uniforms {
     model_matrix: Mat4,
@@ -257,6 +257,42 @@ fn render_mars(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array:
         }
     }
 }
+fn render_jupiter(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Vertex]) {
+    let mut transformed_vertices = Vec::with_capacity(vertex_array.len());
+    for vertex in vertex_array {
+        let transformed = vertex_shader(vertex, uniforms);
+        transformed_vertices.push(transformed);
+    }
+
+    let mut triangles = Vec::new();
+    for i in (0..transformed_vertices.len()).step_by(3) {
+        if i + 2 < transformed_vertices.len() {
+            triangles.push([
+                transformed_vertices[i].clone(),
+                transformed_vertices[i + 1].clone(),
+                transformed_vertices[i + 2].clone(),
+            ]);
+        }
+    }
+
+    let mut fragments = Vec::new();
+    for tri in &triangles {
+        fragments.extend(triangle(&tri[0], &tri[1], &tri[2]));
+    }
+
+    for fragment in fragments {
+        let x = fragment.position.x as usize;
+        let y = fragment.position.y as usize;
+
+        if x < framebuffer.width && y < framebuffer.height {
+            let shaded_color = jupiter_shader(&fragment, uniforms);
+            let color = shaded_color.to_hex();
+            framebuffer.set_current_color(color);
+            framebuffer.point(x, y, fragment.depth);
+        }
+    }
+}
+
 
 
 
@@ -311,6 +347,14 @@ fn main() {
     let rotation_mars = Vec3::new(0.0, 0.0, 0.0);
     let obj_mars = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
     let vertex_array_mars = obj_mars.get_vertex_array();
+
+    // Configuración de Júpiter
+    let translation_jupiter = Vec3::new(15.0, 0.0, 0.0); // Más lejos que Marte
+    let scale_jupiter = 1.2f32; // Más grande, ya que es un gigante gaseoso
+    let rotation_jupiter = Vec3::new(0.0, 0.0, 0.0);
+    let obj_jupiter = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
+    let vertex_array_jupiter = obj_jupiter.get_vertex_array();
+
 
 
     // Cámara inicial
@@ -390,6 +434,17 @@ fn main() {
             time,
         };
         render_mars(&mut framebuffer, &uniforms_mars, &vertex_array_mars);
+
+
+        let model_matrix_jupiter = create_model_matrix(translation_jupiter, scale_jupiter, rotation_jupiter);
+        let uniforms_jupiter = Uniforms {
+            model_matrix: model_matrix_jupiter,
+            view_matrix: view_matrix.clone(),
+            projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
+            viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
+            time,
+        };
+        render_jupiter(&mut framebuffer, &uniforms_jupiter, &vertex_array_jupiter);
 
         window
             .update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height)
