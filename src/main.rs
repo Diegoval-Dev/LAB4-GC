@@ -17,7 +17,7 @@ use vertex::Vertex;
 use obj::Obj;
 use camera::Camera;
 use triangle::triangle;
-use shaders::{vertex_shader, fragment_shader, sun_shader};
+use shaders::{vertex_shader, fragment_shader, sun_shader, rocky_planet_shader};
 
 pub struct Uniforms {
     model_matrix: Mat4,
@@ -103,6 +103,48 @@ fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Ve
     }
 }
 
+fn render_rocky_planet(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Vertex]) {
+    // Vertex Shader
+    let mut transformed_vertices = Vec::with_capacity(vertex_array.len());
+    for vertex in vertex_array {
+        let transformed = vertex_shader(vertex, uniforms);
+        transformed_vertices.push(transformed);
+    }
+
+    // Primitive Assembly
+    let mut triangles = Vec::new();
+    for i in (0..transformed_vertices.len()).step_by(3) {
+        if i + 2 < transformed_vertices.len() {
+            triangles.push([
+                transformed_vertices[i].clone(),
+                transformed_vertices[i + 1].clone(),
+                transformed_vertices[i + 2].clone(),
+            ]);
+        }
+    }
+
+    // Rasterization
+    let mut fragments = Vec::new();
+    for tri in &triangles {
+        fragments.extend(triangle(&tri[0], &tri[1], &tri[2]));
+    }
+
+    // Fragment Processing
+    for fragment in fragments {
+        let x = fragment.position.x as usize;
+        let y = fragment.position.y as usize;
+
+        if x < framebuffer.width && y < framebuffer.height {
+            let shaded_color = rocky_planet_shader(&fragment, uniforms);
+            let color = shaded_color.to_hex();
+            framebuffer.set_current_color(color);
+            framebuffer.point(x, y, fragment.depth);
+        }
+    }
+}
+
+
+
 fn main() {
     let window_width = 800;
     let window_height = 600;
@@ -112,7 +154,7 @@ fn main() {
 
     let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
     let mut window = Window::new(
-        "Sistema Solar Shader Lab - Sol",
+        "Sistema Solar Shader Lab - Sol y Mercurio",
         window_width,
         window_height,
         WindowOptions::default(),
@@ -120,14 +162,21 @@ fn main() {
 
     framebuffer.set_background_color(0x000000);
 
+    // Configuración del Sol
     let translation_sun = Vec3::new(0.0, 0.0, 0.0);
     let scale_sun = 1.5f32;
     let rotation_sun = Vec3::new(0.0, 0.0, 0.0);
-
     let obj_sun = Obj::load("assets/models/sun.obj").expect("Failed to load sun");
     let vertex_array_sun = obj_sun.get_vertex_array();
 
+    // Configuración de Mercurio (planeta rocoso)
+    let translation_mercury = Vec3::new(8.0, 4.0, 0.0); // Posición cerca del sol
+    let scale_mercury = 0.5f32;
+    let rotation_mercury = Vec3::new(0.0, 0.0, 0.0);
+    let obj_mercury = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
+    let vertex_array_mercury = obj_mercury.get_vertex_array();
 
+    // Cámara inicial
     let mut camera = Camera::new(
         Vec3::new(0.0, 0.0, 5.0),
         Vec3::new(0.0, 0.0, 0.0),
@@ -143,24 +192,35 @@ fn main() {
 
         time += 1;
 
-
+        // Procesar entrada de la cámara
         handle_input(&window, &mut camera);
 
+        // Actualizar la matriz de vista de la cámara
         let view_matrix = create_view_matrix(camera.eye, camera.center, camera.up);
 
         framebuffer.clear();
 
- 
+        // Renderizar el Sol
         let model_matrix_sun = create_model_matrix(translation_sun, scale_sun, rotation_sun);
         let uniforms_sun = Uniforms { 
             model_matrix: model_matrix_sun, 
-            view_matrix, 
+            view_matrix: view_matrix.clone(), 
             projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
             viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
             time
         };
-
         render(&mut framebuffer, &uniforms_sun, &vertex_array_sun);
+
+        // Renderizar Mercurio con shader de planeta rocoso
+        let model_matrix_mercury = create_model_matrix(translation_mercury, scale_mercury, rotation_mercury);
+        let uniforms_mercury = Uniforms {
+            model_matrix: model_matrix_mercury,
+            view_matrix,
+            projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
+            viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
+            time,
+        };
+        render_rocky_planet(&mut framebuffer, &uniforms_mercury, &vertex_array_mercury);
 
         window
             .update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height)
@@ -169,7 +229,6 @@ fn main() {
         std::thread::sleep(frame_delay);
     }
 }
-
 
 
 fn handle_input(window: &Window, camera: &mut Camera) {

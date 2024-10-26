@@ -165,6 +165,33 @@ pub fn sun_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
   noise_color * emission_intensity
 }
 
+pub fn rocky_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+  let x = fragment.vertex_position.x;
+  let y = fragment.vertex_position.y;
+
+  let color_dark_gray = Color::new(105, 105, 105); 
+  let color_dark_brown = Color::new(80, 65, 55);   
+
+
+  let pattern = ((x * 10.0).sin() * (y * 10.0).cos()).abs();
+  let base_color = Color::new(
+      (color_dark_brown.get_r() as f32 * pattern) as u8,
+      (color_dark_brown.get_g() as f32 * pattern) as u8,
+      (color_dark_brown.get_b() as f32 * pattern) as u8,
+  );
+
+
+  let noise_intensity = (5.0 * (x * 5.0).sin() * (y * 5.0).cos()).abs();
+  let noise_color = Color::new(
+      (base_color.get_r() as f32 * noise_intensity) as u8,
+      (base_color.get_g() as f32 * noise_intensity) as u8,
+      (base_color.get_b() as f32 * noise_intensity) as u8,
+  );
+
+  color_dark_gray.blend_multiply(&noise_color)
+}
+
+
 
 
 
