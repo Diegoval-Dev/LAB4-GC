@@ -17,7 +17,7 @@ use vertex::Vertex;
 use obj::Obj;
 use camera::Camera;
 use triangle::triangle;
-use shaders::{vertex_shader, fragment_shader, sun_shader, rocky_planet_shader,venus_shader, earth_shader, mars_shader,jupiter_shader};
+use shaders::{vertex_shader, fragment_shader, sun_shader, rocky_planet_shader,venus_shader, earth_shader, mars_shader,jupiter_shader, moon_shader};
 
 pub struct Uniforms {
     model_matrix: Mat4,
@@ -293,6 +293,43 @@ fn render_jupiter(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_arr
     }
 }
 
+fn render_moon(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Vertex]) {
+    let mut transformed_vertices = Vec::with_capacity(vertex_array.len());
+    for vertex in vertex_array {
+        let transformed = vertex_shader(vertex, uniforms);
+        transformed_vertices.push(transformed);
+    }
+
+    let mut triangles = Vec::new();
+    for i in (0..transformed_vertices.len()).step_by(3) {
+        if i + 2 < transformed_vertices.len() {
+            triangles.push([
+                transformed_vertices[i].clone(),
+                transformed_vertices[i + 1].clone(),
+                transformed_vertices[i + 2].clone(),
+            ]);
+        }
+    }
+
+    let mut fragments = Vec::new();
+    for tri in &triangles {
+        fragments.extend(triangle(&tri[0], &tri[1], &tri[2]));
+    }
+
+    for fragment in fragments {
+        let x = fragment.position.x as usize;
+        let y = fragment.position.y as usize;
+
+        if x < framebuffer.width && y < framebuffer.height {
+            let shaded_color = moon_shader(&fragment, uniforms);
+            let color = shaded_color.to_hex();
+            framebuffer.set_current_color(color);
+            framebuffer.point(x, y, fragment.depth);
+        }
+    }
+}
+
+
 
 
 
@@ -335,11 +372,17 @@ fn main() {
     let vertex_array_venus = obj_venus.get_vertex_array();
 
     // Configuración de la Tierra
-    let translation_earth = Vec3::new(8.0, 0.0, 0.0); // Más lejos que Venus
+    let translation_earth = Vec3::new(8.0, 2.0, 8.0);
     let scale_earth = 0.6f32;
     let rotation_earth = Vec3::new(0.0, 0.0, 0.0);
     let obj_earth = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
     let vertex_array_earth = obj_earth.get_vertex_array();
+
+    // Configuración de la Luna
+    let scale_moon = 0.15f32; // Más pequeña que la Tierra
+    let rotation_moon = Vec3::new(0.0, 0.0, 0.0);
+    let obj_moon = Obj::load("assets/models/planet.obj").expect("Failed to load moon");
+    let vertex_array_moon = obj_moon.get_vertex_array();
 
     // Configuración de Marte
     let translation_mars = Vec3::new(10.0, 0.0, 0.0); // Más lejos que la Tierra
@@ -354,8 +397,6 @@ fn main() {
     let rotation_jupiter = Vec3::new(0.0, 0.0, 0.0);
     let obj_jupiter = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
     let vertex_array_jupiter = obj_jupiter.get_vertex_array();
-
-
 
     // Cámara inicial
     let mut camera = Camera::new(
@@ -372,6 +413,13 @@ fn main() {
         }
 
         time += 1;
+
+        // Configuración de la órbita de la Luna alrededor de la Tierra
+        let orbit_radius = 2.0; 
+        let moon_x = translation_earth.x + orbit_radius * (time as f32 * 0.01).cos();
+        let moon_y = translation_earth.y + 2.0  + orbit_radius * (time as f32 * 0.01).sin();
+        let moon_z = translation_earth.z;
+        let translation_moon = Vec3::new(moon_x, moon_y, moon_z);
 
         // Procesar entrada de la cámara
         handle_input(&window, &mut camera);
@@ -407,17 +455,17 @@ fn main() {
         let model_matrix_venus = create_model_matrix(translation_venus, scale_venus, rotation_venus);
         let uniforms_venus = Uniforms {
             model_matrix: model_matrix_venus,
-            view_matrix,
+            view_matrix: view_matrix.clone(),
             projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
             viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
             time,
         };
         render_venus(&mut framebuffer, &uniforms_venus, &vertex_array_venus);
 
-        
+        // Renderizar la Tierra
         let model_matrix_earth = create_model_matrix(translation_earth, scale_earth, rotation_earth);
         let uniforms_earth = Uniforms {
-        model_matrix: model_matrix_earth,
+            model_matrix: model_matrix_earth,
             view_matrix: view_matrix.clone(),
             projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
             viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
@@ -425,6 +473,18 @@ fn main() {
         };
         render_earth(&mut framebuffer, &uniforms_earth, &vertex_array_earth);
 
+        // Renderizar la Luna en órbita
+        let model_matrix_moon = create_model_matrix(translation_moon, scale_moon, rotation_moon);
+        let uniforms_moon = Uniforms {
+            model_matrix: model_matrix_moon,
+            view_matrix: view_matrix.clone(),
+            projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
+            viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
+            time,
+        };
+        render_moon(&mut framebuffer, &uniforms_moon, &vertex_array_moon);
+
+        // Renderizar Marte
         let model_matrix_mars = create_model_matrix(translation_mars, scale_mars, rotation_mars);
         let uniforms_mars = Uniforms {
             model_matrix: model_matrix_mars,
@@ -435,7 +495,7 @@ fn main() {
         };
         render_mars(&mut framebuffer, &uniforms_mars, &vertex_array_mars);
 
-
+        // Renderizar Júpiter
         let model_matrix_jupiter = create_model_matrix(translation_jupiter, scale_jupiter, rotation_jupiter);
         let uniforms_jupiter = Uniforms {
             model_matrix: model_matrix_jupiter,

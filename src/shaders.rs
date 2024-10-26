@@ -274,17 +274,17 @@ pub fn jupiter_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
   let x = fragment.vertex_position.x;
   let y = fragment.vertex_position.y;
 
-  // Colores base para las bandas de la atmósfera de Júpiter
-  let color_light_brown = Color::new(210, 180, 140); // Marrón claro
-  let color_dark_brown = Color::new(139, 69, 19);    // Marrón oscuro
-  let color_white = Color::new(245, 245, 245);       // Blanco para bandas claras
-  let color_red_spot = Color::new(255, 69, 0);       // Rojo para la Gran Mancha Roja
+  
+  let color_light_brown = Color::new(210, 180, 140); 
+  let color_dark_brown = Color::new(139, 69, 19);    
+  let color_white = Color::new(245, 245, 245);       
+  let color_red_spot = Color::new(255, 69, 0);       
 
-  // Movimiento en las bandas para simular la atmósfera en movimiento
+
   let time = uniforms.time as f32 * 0.02; // Control de velocidad
   let band_pattern = ((y * 10.0 + time).sin() * 0.5 + 0.5).clamp(0.0, 1.0);
 
-  // Bandas horizontales: alternamos colores para crear la atmósfera en capas
+ 
   let base_color = if band_pattern < 0.3 {
       color_light_brown
   } else if band_pattern < 0.6 {
@@ -293,7 +293,6 @@ pub fn jupiter_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
       color_dark_brown
   };
 
-  // Añadir la Gran Mancha Roja como una elipse en la superficie
   let red_spot_x = (x - 0.3).powi(2) / 0.1;
   let red_spot_y = (y + 0.2).powi(2) / 0.2;
   let red_spot_intensity = 1.0 - (red_spot_x + red_spot_y).clamp(0.0, 1.0);
@@ -306,6 +305,25 @@ pub fn jupiter_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
 
   final_color
 }
+
+pub fn moon_shader(fragment: &Fragment, _uniforms: &Uniforms) -> Color {
+  let x = fragment.vertex_position.x;
+  let y = fragment.vertex_position.y;
+
+
+  let color_light_gray = Color::new(200, 200, 200); 
+  let color_dark_gray = Color::new(105, 105, 105); 
+
+  let surface_noise = ((x * 5.0).sin() * (y * 5.0).cos()).abs();
+  let base_color = if surface_noise > 0.5 {
+      color_dark_gray
+  } else {
+      color_light_gray
+  };
+
+  base_color
+}
+
 
 
 
