@@ -217,12 +217,18 @@ pub fn earth_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
   let x = fragment.vertex_position.x;
   let y = fragment.vertex_position.y;
 
-  let color_water = Color::new(0, 105, 148);       
-  let color_land = Color::new(34, 139, 34);        
-  let color_mountain = Color::new(139, 69, 19);    
-  let color_cloud = Color::new(255, 255, 255);     
+  let color_water = Color::new(0, 105, 148);       // Color de agua
+  let color_land = Color::new(34, 139, 34);        // Color de tierra
+  let color_mountain = Color::new(139, 69, 19);    // Color de montañas
+  let color_cloud = Color::new(255, 255, 255);     // Color de nubes
 
-  let continent_factor = ((x * 3.5 + y * 2.1).sin() * (x * 2.8 - y * 3.3).cos()).abs();
+  // Desplazamiento temporal horizontal para la superficie (tierra y montañas)
+  let time_surface = uniforms.time as f32 * 0.005; // Movimiento lento en el eje x
+  let moving_x = x + time_surface;                 // Movimiento horizontal de la superficie
+  let moving_y = y;
+
+  // Calcular el factor de continente (tierra y montañas) con el desplazamiento horizontal
+  let continent_factor = ((moving_x * 3.5 + moving_y * 2.1).sin() * (moving_x * 2.8 - moving_y * 3.3).cos()).abs();
 
   let base_color = if continent_factor > 0.4 {
       if continent_factor > 0.6 {
@@ -234,8 +240,12 @@ pub fn earth_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
       color_water
   };
 
-  let time = uniforms.time as f32 * 0.02;
-  let cloud_noise = ((x * 20.0 + time).sin() * (y * 20.0 + time).cos()).abs();
+  // Movimiento rápido de las nubes en ambas direcciones
+  let cloud_time = uniforms.time as f32 * 0.02; // Velocidad de movimiento de las nubes
+  let cloud_x = x + cloud_time.sin() * 0.3;     // Desplazamiento en x para las nubes
+  let cloud_y = y + cloud_time.cos() * 0.3;     // Desplazamiento en y para las nubes
+  let cloud_noise = ((cloud_x * 20.0).sin() * (cloud_y * 20.0).cos()).abs();
+
   let cloud_color = if cloud_noise > 0.6 {
       color_cloud
   } else {
@@ -244,6 +254,8 @@ pub fn earth_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
 
   cloud_color
 }
+
+
 
 
 pub fn mars_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
