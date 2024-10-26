@@ -324,6 +324,52 @@ pub fn moon_shader(fragment: &Fragment, _uniforms: &Uniforms) -> Color {
   base_color
 }
 
+pub fn saturn_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+  let x = fragment.vertex_position.x;
+  let y = fragment.vertex_position.y;
+
+  let color_pale_yellow = Color::new(253, 253, 150); 
+  let color_light_brown = Color::new(205, 133, 63);  
+  let color_beige = Color::new(245, 222, 179);       
+
+  // Bandas horizontales en la atmósfera
+  let band_pattern = ((y * 5.0 + uniforms.time as f32 * 0.01).sin() * 0.5 + 0.5).clamp(0.0, 1.0);
+
+  let base_color = if band_pattern < 0.3 {
+      color_pale_yellow
+  } else if band_pattern < 0.6 {
+      color_beige
+  } else {
+      color_light_brown
+  };
+
+  base_color
+}
+
+pub fn saturn_rings_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+  let x = fragment.vertex_position.x;
+  let y = fragment.vertex_position.y;
+
+  // Distancia radial desde el centro para crear anillos concéntricos
+  let distance = (x * x + y * y).sqrt();
+
+  // Colores para los anillos
+  let color_ring1 = Color::new(200, 200, 200); // Gris claro
+  let color_ring2 = Color::new(169, 169, 169); // Gris oscuro
+
+  // Crear anillos concéntricos basados en la distancia
+  if distance > 1.1 && distance < 1.2 {
+      color_ring1
+  } else if distance > 1.3 && distance < 1.4 {
+      color_ring2
+  } else if distance > 1.5 && distance < 1.6 {
+      color_ring1
+  } else if distance > 1.7 && distance < 1.8 {
+      color_ring2
+  } else {
+      Color::new(0, 0, 0) // Negro (transparente) para el área sin anillos
+  }
+}
 
 
 

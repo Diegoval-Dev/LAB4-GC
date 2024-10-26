@@ -17,7 +17,7 @@ use vertex::Vertex;
 use obj::Obj;
 use camera::Camera;
 use triangle::triangle;
-use shaders::{vertex_shader, fragment_shader, sun_shader, rocky_planet_shader,venus_shader, earth_shader, mars_shader,jupiter_shader, moon_shader};
+use shaders::{vertex_shader, fragment_shader, sun_shader, rocky_planet_shader,venus_shader, earth_shader, mars_shader,jupiter_shader, moon_shader, saturn_shader, saturn_rings_shader};
 
 pub struct Uniforms {
     model_matrix: Mat4,
@@ -329,6 +329,78 @@ fn render_moon(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array:
     }
 }
 
+fn render_saturn(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Vertex]) {
+    let mut transformed_vertices = Vec::with_capacity(vertex_array.len());
+    for vertex in vertex_array {
+        let transformed = vertex_shader(vertex, uniforms);
+        transformed_vertices.push(transformed);
+    }
+
+    let mut triangles = Vec::new();
+    for i in (0..transformed_vertices.len()).step_by(3) {
+        if i + 2 < transformed_vertices.len() {
+            triangles.push([
+                transformed_vertices[i].clone(),
+                transformed_vertices[i + 1].clone(),
+                transformed_vertices[i + 2].clone(),
+            ]);
+        }
+    }
+
+    let mut fragments = Vec::new();
+    for tri in &triangles {
+        fragments.extend(triangle(&tri[0], &tri[1], &tri[2]));
+    }
+
+    for fragment in fragments {
+        let x = fragment.position.x as usize;
+        let y = fragment.position.y as usize;
+
+        if x < framebuffer.width && y < framebuffer.height {
+            let shaded_color = saturn_shader(&fragment, uniforms);
+            let color = shaded_color.to_hex();
+            framebuffer.set_current_color(color);
+            framebuffer.point(x, y, fragment.depth);
+        }
+    }
+}
+fn render_saturn_rings(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Vertex]) {
+    let mut transformed_vertices = Vec::with_capacity(vertex_array.len());
+    for vertex in vertex_array {
+        let transformed = vertex_shader(vertex, uniforms);
+        transformed_vertices.push(transformed);
+    }
+
+    let mut triangles = Vec::new();
+    for i in (0..transformed_vertices.len()).step_by(3) {
+        if i + 2 < transformed_vertices.len() {
+            triangles.push([
+                transformed_vertices[i].clone(),
+                transformed_vertices[i + 1].clone(),
+                transformed_vertices[i + 2].clone(),
+            ]);
+        }
+    }
+
+    let mut fragments = Vec::new();
+    for tri in &triangles {
+        fragments.extend(triangle(&tri[0], &tri[1], &tri[2]));
+    }
+
+    for fragment in fragments {
+        let x = fragment.position.x as usize;
+        let y = fragment.position.y as usize;
+
+        if x < framebuffer.width && y < framebuffer.height {
+            let shaded_color = saturn_rings_shader(&fragment, uniforms);
+            let color = shaded_color.to_hex();
+            framebuffer.set_current_color(color);
+            framebuffer.point(x, y, fragment.depth);
+        }
+    }
+}
+
+
 
 
 
@@ -397,6 +469,13 @@ fn main() {
     let rotation_jupiter = Vec3::new(0.0, 0.0, 0.0);
     let obj_jupiter = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
     let vertex_array_jupiter = obj_jupiter.get_vertex_array();
+
+    // Configuración de Saturno
+    let translation_saturn = Vec3::new(20.0, 0.0, 0.0); // Más lejos que Júpiter
+    let scale_saturn = 1.0f32;
+    let rotation_saturn = Vec3::new(0.0, 0.0, 0.0);
+    let obj_saturn = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
+    let vertex_array_saturn = obj_saturn.get_vertex_array();
 
     // Cámara inicial
     let mut camera = Camera::new(
@@ -505,6 +584,30 @@ fn main() {
             time,
         };
         render_jupiter(&mut framebuffer, &uniforms_jupiter, &vertex_array_jupiter);
+
+        // Renderizar Saturno
+        let model_matrix_saturn = create_model_matrix(translation_saturn, scale_saturn, rotation_saturn);
+        let uniforms_saturn = Uniforms {
+            model_matrix: model_matrix_saturn,
+            view_matrix: view_matrix.clone(),
+            projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
+            viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
+            time,
+        };
+        render_saturn(&mut framebuffer, &uniforms_saturn, &vertex_array_saturn);
+
+        // Renderizar los Anillos de Saturno usando shaders
+        let scale_rings = 2.0f32; // Más grande que el planeta para simular anillos
+        let model_matrix_rings = create_model_matrix(translation_saturn, scale_rings, rotation_saturn);
+        let uniforms_rings = Uniforms {
+            model_matrix: model_matrix_rings,
+            view_matrix: view_matrix.clone(),
+            projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
+            viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
+            time,
+        };
+        render_saturn_rings(&mut framebuffer, &uniforms_rings, &vertex_array_saturn);
+        
 
         window
             .update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height)
