@@ -17,7 +17,7 @@ use vertex::Vertex;
 use obj::Obj;
 use camera::Camera;
 use triangle::triangle;
-use shaders::{vertex_shader, fragment_shader, sun_shader, rocky_planet_shader,venus_shader, earth_shader};
+use shaders::{vertex_shader, fragment_shader, sun_shader, rocky_planet_shader,venus_shader, earth_shader, mars_shader};
 
 pub struct Uniforms {
     model_matrix: Mat4,
@@ -222,6 +222,42 @@ fn render_earth(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array
         }
     }
 }
+fn render_mars(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Vertex]) {
+    let mut transformed_vertices = Vec::with_capacity(vertex_array.len());
+    for vertex in vertex_array {
+        let transformed = vertex_shader(vertex, uniforms);
+        transformed_vertices.push(transformed);
+    }
+
+    let mut triangles = Vec::new();
+    for i in (0..transformed_vertices.len()).step_by(3) {
+        if i + 2 < transformed_vertices.len() {
+            triangles.push([
+                transformed_vertices[i].clone(),
+                transformed_vertices[i + 1].clone(),
+                transformed_vertices[i + 2].clone(),
+            ]);
+        }
+    }
+
+    let mut fragments = Vec::new();
+    for tri in &triangles {
+        fragments.extend(triangle(&tri[0], &tri[1], &tri[2]));
+    }
+
+    for fragment in fragments {
+        let x = fragment.position.x as usize;
+        let y = fragment.position.y as usize;
+
+        if x < framebuffer.width && y < framebuffer.height {
+            let shaded_color = mars_shader(&fragment, uniforms);
+            let color = shaded_color.to_hex();
+            framebuffer.set_current_color(color);
+            framebuffer.point(x, y, fragment.depth);
+        }
+    }
+}
+
 
 
 fn main() {
@@ -250,14 +286,14 @@ fn main() {
 
     // Configuración de Mercurio
     let translation_mercury = Vec3::new(4.0, 0.0, 0.0); // Mercurio cerca del sol
-    let scale_mercury = 0.5f32;
+    let scale_mercury = 0.4f32;
     let rotation_mercury = Vec3::new(0.0, 0.0, 0.0);
     let obj_mercury = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
     let vertex_array_mercury = obj_mercury.get_vertex_array();
 
     // Configuración de Venus
     let translation_venus = Vec3::new(6.0, 0.0, 0.0); // Venus más lejos que Mercurio
-    let scale_venus = 0.6f32;
+    let scale_venus = 0.55f32;
     let rotation_venus = Vec3::new(0.0, 0.0, 0.0);
     let obj_venus = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
     let vertex_array_venus = obj_venus.get_vertex_array();
@@ -268,6 +304,14 @@ fn main() {
     let rotation_earth = Vec3::new(0.0, 0.0, 0.0);
     let obj_earth = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
     let vertex_array_earth = obj_earth.get_vertex_array();
+
+    // Configuración de Marte
+    let translation_mars = Vec3::new(10.0, 0.0, 0.0); // Más lejos que la Tierra
+    let scale_mars = 0.5f32;
+    let rotation_mars = Vec3::new(0.0, 0.0, 0.0);
+    let obj_mars = Obj::load("assets/models/planet.obj").expect("Failed to load planet");
+    let vertex_array_mars = obj_mars.get_vertex_array();
+
 
     // Cámara inicial
     let mut camera = Camera::new(
@@ -326,17 +370,26 @@ fn main() {
         };
         render_venus(&mut framebuffer, &uniforms_venus, &vertex_array_venus);
 
-        // Dentro del bucle principal
-    let model_matrix_earth = create_model_matrix(translation_earth, scale_earth, rotation_earth);
-    let uniforms_earth = Uniforms {
+        
+        let model_matrix_earth = create_model_matrix(translation_earth, scale_earth, rotation_earth);
+        let uniforms_earth = Uniforms {
         model_matrix: model_matrix_earth,
-        view_matrix: view_matrix.clone(),
-        projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
-        viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
-        time,
-    };
-    render_earth(&mut framebuffer, &uniforms_earth, &vertex_array_earth);
+            view_matrix: view_matrix.clone(),
+            projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
+            viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
+            time,
+        };
+        render_earth(&mut framebuffer, &uniforms_earth, &vertex_array_earth);
 
+        let model_matrix_mars = create_model_matrix(translation_mars, scale_mars, rotation_mars);
+        let uniforms_mars = Uniforms {
+            model_matrix: model_matrix_mars,
+            view_matrix: view_matrix.clone(),
+            projection_matrix: create_perspective_matrix(window_width as f32, window_height as f32),
+            viewport_matrix: create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32),
+            time,
+        };
+        render_mars(&mut framebuffer, &uniforms_mars, &vertex_array_mars);
 
         window
             .update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height)

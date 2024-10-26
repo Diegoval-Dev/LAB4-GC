@@ -246,5 +246,30 @@ pub fn earth_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
 }
 
 
+pub fn mars_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+  let x = fragment.vertex_position.x;
+  let y = fragment.vertex_position.y;
+
+
+  let color_red = Color::new(205, 92, 92);       
+  let color_dark_red = Color::new(139, 69, 19);  
+  let color_brown = Color::new(165, 42, 42);     
+
+
+  let surface_noise = ((x * 8.0).sin() * (y * 8.0).cos()).abs();
+  let crater_noise = ((x * 15.0).sin() * (y * 15.0).cos()).abs();
+
+  let base_color = if crater_noise > 0.6 {
+      color_dark_red 
+  } else if surface_noise > 0.4 {
+      color_brown 
+  } else {
+      color_red 
+  };
+
+  base_color
+}
+
+
 
 
